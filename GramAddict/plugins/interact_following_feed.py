@@ -2,7 +2,7 @@ from GramAddict.core.plugin_loader import Plugin
 from GramAddict.core.decorators import run_safely
 from GramAddict.core.utils import init_on_things, get_value
 from GramAddict.core.views import TabBarView, PostsViewList, LikeMode, SwipeTo
-from GramAddict.core.device_facade import DeviceFacade
+from GramAddict.core.device_facade import DeviceFacade, Direction
 from GramAddict.core.resources import ResourceID
 
 import logging
@@ -69,6 +69,7 @@ class InteractFollowingFeed(Plugin):
             logger.error("Unable to navigate to Home tab.")
             return
 
+        self.interact_with_stories(device_facade)
         self.click_following_button(device_facade)
 
         # Get the number of posts to interact with
@@ -95,6 +96,66 @@ class InteractFollowingFeed(Plugin):
 
             posts_view_list.swipe_to_fit_posts(SwipeTo.NEXT_POST)
             time.sleep(2)  # Wait for the next post to load
+
+
+    def interact_with_stories(self, device_facade):
+        logger.info("Interacting with stories")
+        
+        # Click on the first story (not the user's own story)
+        first_story = device_facade.find(
+            resourceId='com.instagram.android:id/avatar_image_view',
+            descriptionMatches=r".*'s story at column 1\. Unseen\..*"
+        )
+        if not first_story.exists():
+            logger.info("No stories found")
+            return
+        
+        first_story.click()
+        time.sleep(2)  # Wait for the story to load
+
+        while True:
+            # Check if it's a sponsored story
+            sponsored_text = device_facade.find(
+                resourceId='com.instagram.android:id/reel_viewer_subtitle',
+                text='Sponsored'
+            )
+            if sponsored_text.exists():
+                logger.info("Skipping sponsored story")
+            else:
+                # Like the story if not liked in the last 20 hours
+                if self.can_like_story():
+                    like_button = device_facade.find(
+                        resourceId='com.instagram.android:id/toolbar_like_button',
+                        description='Like'
+                    )
+                    if like_button.exists():
+                        like_button.click()
+                        logger.info("Liked the story")
+                        self.update_story_like_time()
+
+            # Move to the next story
+            device_facade.swipe(Direction.LEFT)
+            time.sleep(1)
+
+            # Check if we've reached the end of stories
+            reel_viewer = device_facade.find(
+                resourceId='com.instagram.android:id/reel_viewer_root'
+            )
+            if not reel_viewer.exists():
+                logger.info("Reached the end of stories")
+                break
+
+        # Exit stories view
+        device_facade.back()
+
+    def can_like_story(self):
+        # Implement logic to check if the story can be liked (not liked in the last 20 hours)
+        # You'll need to store and check the last like time for each user
+        return True  # Placeholder implementation
+
+    def update_story_like_time(self):
+        # Implement logic to update the last like time for the current user
+        pass
 
     def click_following_button(self, device_facade):
         logger.info("Clicking on 'Following' button")

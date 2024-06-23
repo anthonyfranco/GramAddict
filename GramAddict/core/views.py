@@ -928,34 +928,47 @@ class PostsViewList:
         skip_media_check: bool = False,
         already_watched: bool = False,
     ):
+        logger.debug(f"Entering _like_in_post_view with mode={mode}, skip_media_check={skip_media_check}, already_watched={already_watched}")
         post_view_list = PostsViewList(self.device)
         opened_post_view = OpenedPostView(self.device)
         if skip_media_check:
+            logger.debug("Skipping media check as skip_media_check is True")
             return
         media, content_desc = self._get_media_container()
+        logger.debug(f"Media container obtained: media={media}, content_desc={content_desc}")
         if content_desc is None:
+            logger.info("Content description is None, returning.")
             return
         if not already_watched:
+            logger.debug("Media not already watched, detecting media type.")
             media_type, _ = post_view_list.detect_media_type(content_desc)
+            logger.debug(f"Detected media type: {media_type}")
             opened_post_view.watch_media(media_type)
         if mode == LikeMode.DOUBLE_CLICK:
+            logger.debug("Mode is DOUBLE_CLICK")
             if media_type in (MediaType.CAROUSEL, MediaType.PHOTO):
                 logger.info("Double click on post.")
                 _, _, action_bar_bottom = PostsViewList(
                     self.device
                 )._get_action_bar_position()
+                logger.debug(f"Action bar bottom position: {action_bar_bottom}")
                 media.double_click(obj_over=action_bar_bottom)
             else:
+                logger.info("Media type is not CAROUSEL or PHOTO, switching to SINGLE_CLICK mode.")
                 self._like_in_post_view(
                     mode=LikeMode.SINGLE_CLICK, skip_media_check=True
                 )
         elif mode == LikeMode.SINGLE_CLICK:
+            logger.debug("Mode is SINGLE_CLICK")
             like_button_exists, _ = self._find_likers_container()
+            logger.debug(f"Like button exists: {like_button_exists}")
             if like_button_exists:
                 logger.info("Clicking on the little heart ❤️.")
                 self.device.find(
                     resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE
                 ).click()
+            else:
+                logger.info("No like button found, skipping.")
 
     def _follow_in_post_view(self):
         logger.info("Follow blogger in place.")
