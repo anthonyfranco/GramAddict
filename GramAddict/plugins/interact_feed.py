@@ -10,6 +10,11 @@ from GramAddict.core.interaction import interact_with_user
 from GramAddict.core.plugin_loader import Plugin
 from GramAddict.core.utils import init_on_things
 
+from GramAddict.core.views import (
+    TabBarView
+)
+
+
 logger = logging.getLogger(__name__)
 
 # Script Initialization
@@ -30,6 +35,14 @@ class InteractOwnFeed(Plugin):
                 "metavar": "5-10",
                 "default": None,
                 "operation": True,
+            },
+            {
+                "arg": "--feed-click-following",
+                "nargs": None,
+                "help": "click on 'Following' before interacting with feed",
+                "metavar": None,
+                "default": False,
+                "operation": False,
             },
         ]
 
@@ -55,6 +68,11 @@ class InteractOwnFeed(Plugin):
 
         self.state = State()
         logger.info("Interact with your own feed", extra={"color": f"{Style.BRIGHT}"})
+
+        # Click on 'Following' if the option is enabled
+        if self.args.feed_click_following:
+            self.click_following(device)
+
 
         # Init common things
         (
@@ -100,6 +118,46 @@ class InteractOwnFeed(Plugin):
                 limit_type=self.session_state.Limit.ALL, output=True
             )
             return
+    def click_following(self, device):
+        logger.info("Clicking on 'Following' before interacting with feed")
+        
+        # Navigate to profile
+        TabBarView(device).navigateToProfile()
+
+        # Click on the top left corner (Instagram logo area)
+        top_left_corner = device.find(
+            resourceId='com.instagram.android:id/action_bar_container',
+            className='android.widget.FrameLayout'
+        ).child(
+            resourceId='com.instagram.android:id/title_logo_chevron_container',
+            className='android.widget.LinearLayout'
+        )
+
+        if top_left_corner.exists():
+            logger.info("Clicking on the top left corner")
+            top_left_corner.click()
+            device.sleep(2)
+        else:
+            logger.error("Couldn't find the top left corner element")
+            return
+
+        # Click on "Following"
+        following_button = device.find(
+            resourceId='com.instagram.android:id/context_menu_item',
+            className='android.widget.Button',
+            content_desc='Following'
+        )
+
+        if following_button.exists():
+            logger.info("Clicking on 'Following'")
+            following_button.click()
+            device.sleep(2)
+        else:
+            logger.error("Couldn't find the 'Following' button")
+            return
+
+        logger.info("Successfully clicked on 'Following'")
+
 
     def handle_feed(
         self,

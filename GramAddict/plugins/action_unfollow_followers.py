@@ -230,7 +230,7 @@ class ActionUnfollowFollowers(Plugin):
             return False
         if newest_to_oldest:
             logger.info("Sort followings by date: from newest to oldest.")
-            sort_options_recycler_view.child(textContains="Latest").click()
+            sort_options_recycler_view.child(textContains="Default").click()
         else:
             logger.info("Sort followings by date: from oldest to newest.")
             sort_options_recycler_view.child(textContains="Earliest").click()
