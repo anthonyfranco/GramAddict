@@ -943,11 +943,12 @@ def _watch_stories(
             session_state.totalWatched += 1
             nonlocal stories_counter
             stories_counter += 1
-            for _ in range(7):
-                random_sleep(0.5, 1, modulable=False, log=False)
+            random_sleep(1, 3, modulable=False, log=True)
+            like_story()
+            for _ in range(3):
+                random_sleep(0.5, 1, modulable=False, log=True)
                 if story_view.getUsername().strip().casefold() != username.casefold():
                     return False
-            like_story()
             return True
 
         def like_story():
