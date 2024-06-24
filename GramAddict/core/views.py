@@ -962,6 +962,13 @@ class PostsViewList:
             logger.debug("Mode is SINGLE_CLICK")
             like_button_exists, _ = self._find_likers_container()
             logger.debug(f"Like button exists: {like_button_exists}")
+            if not like_button_exists:
+                logger.info("No like button found, scrolling down a little more.")
+                PostsViewList(self.device).swipe_to_fit_posts(
+                    SwipeTo.HALF_PHOTO
+                )
+                like_button_exists, _ = self._find_likers_container()
+                logger.debug(f"Like button exists: {like_button_exists}")
             if like_button_exists:
                 logger.info("Clicking on the little heart ❤️.")
                 self.device.find(

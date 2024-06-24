@@ -8,6 +8,8 @@ from GramAddict.core.resources import ResourceID
 import logging
 from colorama import Style
 import time
+import os
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,13 @@ class InteractFollowingFeed(Plugin):
         posts_interacted = 0
 
         while True:
+            post_owner_username = posts_view_list._get_post_owner_name()
+            if post_owner_username == self.session_state.my_username:
+                logger.info(f"Skipping post of {post_owner_username} because it is your own post")
+                posts_view_list.swipe_to_fit_posts(SwipeTo.NEXT_POST)
+                time.sleep(2)  # Wait for the next post to load
+                continue
+
             if posts_view_list._check_if_liked():
                 logger.info("Encountered a liked post. Stopping interaction.")
                 break
@@ -114,6 +123,11 @@ class InteractFollowingFeed(Plugin):
         time.sleep(2)  # Wait for the story to load
 
         while True:
+            # Extract the username from the story
+            username_node = device_facade.find(
+                resourceId='com.instagram.android:id/reel_viewer_title',
+                className='android.widget.TextView'
+            )
             # Check if it's a sponsored story
             sponsored_text = device_facade.find(
                 resourceId='com.instagram.android:id/reel_viewer_subtitle',
@@ -121,17 +135,20 @@ class InteractFollowingFeed(Plugin):
             )
             if sponsored_text.exists():
                 logger.info("Skipping sponsored story")
-            else:
+            elif username_node.exists():
+                username = username_node.get_text()
                 # Like the story if not liked in the last 20 hours
-                if self.can_like_story():
+                if self.can_like_story(username):
                     like_button = device_facade.find(
                         resourceId='com.instagram.android:id/toolbar_like_button',
                         description='Like'
                     )
                     if like_button.exists():
                         like_button.click()
-                        logger.info("Liked the story")
-                        self.update_story_like_time()
+                        logger.info(f"Liked the story of {username}")
+                        self.update_story_like_time(username)
+            else:
+                logger.info("No username found in the story")
 
             # Move to the next story
             device_facade.swipe(Direction.LEFT)
@@ -148,14 +165,41 @@ class InteractFollowingFeed(Plugin):
         # Exit stories view
         device_facade.back()
 
-    def can_like_story(self):
-        # Implement logic to check if the story can be liked (not liked in the last 20 hours)
-        # You'll need to store and check the last like time for each user
-        return True  # Placeholder implementation
+    def can_like_story(self, username):
+        # Check if the story can be liked (not liked in the last 20 hours)
+        likes_file = "story_likes.txt"
+        if not os.path.exists(likes_file):
+            return True
 
-    def update_story_like_time(self):
-        # Implement logic to update the last like time for the current user
-        pass
+        with open(likes_file, "r") as file:
+            for line in file:
+                stored_username, timestamp = line.strip().split(',')
+                if stored_username == username:
+                    last_like_time = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                    if datetime.now() - last_like_time < timedelta(hours=20):
+                        logger.info(f"Skipping story of {username} because it was liked {round((datetime.now() - last_like_time).seconds / 3600, 1)} hours ago")
+                        return False
+        return True
+
+    def update_story_like_time(self, username):
+        # Update the last like time for the current user
+        likes_file = "story_likes.txt"
+        lines = []
+        if os.path.exists(likes_file):
+            with open(likes_file, "r") as file:
+                lines = file.readlines()
+
+        with open(likes_file, "w") as file:
+            updated = False
+            for line in lines:
+                stored_username, timestamp = line.strip().split(',')
+                if stored_username == username:
+                    file.write(f"{username},{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    updated = True
+                else:
+                    file.write(line)
+            if not updated:
+                file.write(f"{username},{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     def click_following_button(self, device_facade):
         logger.info("Clicking on 'Following' button")
