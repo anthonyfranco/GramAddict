@@ -77,6 +77,14 @@ class ActionUnfollowFollowers(Plugin):
                 "operation": True,
             },
             {
+                "arg": "--unfollow-non-followers-not-followed-by-script",
+                "nargs": None,
+                "help": "unfollow at most given number of users, that don't follow you back and were not followed by this script. The order is from oldest to newest followings. It can be a number (e.g. 10) or a range (e.g. 10-20)",
+                "metavar": "10-20",
+                "default": None,
+                "operation": True,
+            },
+            {
                 "arg": "--min-following",
                 "nargs": None,
                 "help": "minimum amount of followings, after reaching this amount unfollow stops",
@@ -145,6 +153,8 @@ class ActionUnfollowFollowers(Plugin):
             self.unfollow_type = UnfollowRestriction.ANY_NON_FOLLOWERS
         elif self.unfollow_type == "unfollow-any-followers":
             self.unfollow_type = UnfollowRestriction.ANY_FOLLOWERS
+        elif self.unfollow_type == "unfollow-non-followers-not-followed-by-script":
+            self.unfollow_type = UnfollowRestriction.NON_FOLLOWERS_NOT_FOLLOWED_BY_SCRIPT
         else:
             self.unfollow_type = UnfollowRestriction.ANY
 
@@ -233,7 +243,7 @@ class ActionUnfollowFollowers(Plugin):
             sort_options_recycler_view.child(textContains="Default").click()
         else:
             logger.info("Sort followings by date: from oldest to newest.")
-            sort_options_recycler_view.child(textContains="Earliest").click()
+            sort_options_recycler_view.child(textContains="Default").click()
         return True
 
     def iterate_over_followings(
@@ -322,7 +332,6 @@ class ActionUnfollowFollowers(Plugin):
                     if storage.is_user_in_whitelist(username):
                         logger.info(f"@{username} is in whitelist. Skip.")
                         continue
-
                     if unfollow_restriction in [
                         UnfollowRestriction.FOLLOWED_BY_SCRIPT,
                         UnfollowRestriction.FOLLOWED_BY_SCRIPT_NON_FOLLOWERS,
@@ -374,6 +383,22 @@ class ActionUnfollowFollowers(Plugin):
                         unfollowed = FollowingView(device).do_unfollow_from_list(
                             user_row=item, username=username
                         )
+                    if unfollow_restriction in [
+                        UnfollowRestriction.NON_FOLLOWERS_NOT_FOLLOWED_BY_SCRIPT,
+                    ]:
+                        logger.info(f"Checking if @{username} is followed by this bot.")
+                        following_status = storage.get_following_status(username)
+                        if following_status == FollowingStatus.FOLLOWED:
+                            logger.info(f"@{username} was followed by this bot. Skip.")
+                            continue
+                        else:
+                            logger.info(f"@{username} was not followed by this bot.")
+                            unfollowed = self.do_unfollow(
+                                device,
+                                username,
+                                my_username,
+                                True
+                            )                            
                     else:
                         unfollowed = self.do_unfollow(
                             device,
@@ -445,6 +470,7 @@ class ActionUnfollowFollowers(Plugin):
         """
         :return: whether unfollow was successful
         """
+        logger.info(f"Unfollow @{username}.")
         username_view = device.find(
             resourceId=self.ResourceID.FOLLOW_LIST_USERNAME,
             className=ClassName.TEXT_VIEW,
@@ -568,3 +594,4 @@ class UnfollowRestriction(Enum):
     FOLLOWED_BY_SCRIPT_NON_FOLLOWERS = 2
     ANY_NON_FOLLOWERS = 3
     ANY_FOLLOWERS = 4
+    NON_FOLLOWERS_NOT_FOLLOWED_BY_SCRIPT = 5
