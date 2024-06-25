@@ -78,6 +78,7 @@ class InteractFollowingFeed(Plugin):
         posts_count = get_value(self.args.interact_following_feed, None, -1)
         posts_interacted = 0
 
+        liked_posts_count = 0
         while True:
             post_owner_username = posts_view_list._get_post_owner_name()
             if post_owner_username == self.session_state.my_username:
@@ -87,9 +88,14 @@ class InteractFollowingFeed(Plugin):
                 continue
 
             if posts_view_list._check_if_liked():
-                logger.info("Encountered a liked post. Stopping interaction.")
-                break
-
+                liked_posts_count += 1
+                logger.info(f"Encountered a liked post. Liked posts count: {liked_posts_count}")
+                if liked_posts_count >= 3:
+                    logger.info("Encountered 3 liked posts. Stopping interaction.")
+                    break
+                posts_view_list.swipe_to_fit_posts(SwipeTo.NEXT_POST)
+                time.sleep(2)  # Wait for the next post to load
+                continue
             posts_view_list._like_in_post_view(LikeMode.SINGLE_CLICK)
             self.session_state.totalLikes += 1
             posts_interacted += 1

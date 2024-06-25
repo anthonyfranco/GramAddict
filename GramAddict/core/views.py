@@ -547,7 +547,8 @@ class PostsViewList:
         containers_gap = ResourceID.GAP_VIEW_AND_FOOTER_SPACE
         media_container = ResourceID.MEDIA_CONTAINER
         likes = 0
-        for _ in range(4):
+        for attempt in range(4):
+            logger.debug(f"Attempt {attempt + 1} to find likers container.")
             gap_view_obj = self.device.find(resourceIdMatches=containers_gap)
             likes_view = self.device.find(
                 index=-1,
@@ -567,20 +568,28 @@ class PostsViewList:
                 media.get_bounds()["bottom"]
                 < self.device.get_info()["displayHeight"] / 3
             ):
+                logger.debug("Multiple media detected, swiping down a bit.")
                 universal_actions._swipe_points(Direction.DOWN, delta_y=100)
                 continue
+
             if not likes_view.exists():
                 if description_view.exists() or gap_view_obj.exists():
+                    logger.debug("Description view or gap view exists, but no likes view found.")
                     return False, likes
                 else:
+                    logger.debug("No likes view, description view, or gap view found. Swiping down.")
                     universal_actions._swipe_points(Direction.DOWN, delta_y=100)
                     continue
             elif media.get_bounds()["bottom"] > likes_view.get_bounds()["bottom"]:
+                logger.debug("Media bottom is below likes view bottom, swiping down.")
                 universal_actions._swipe_points(Direction.DOWN, delta_y=100)
                 continue
+
             logger.debug("Likers container exists!")
             likes = self._get_number_of_likers(likes_view)
             return likes_view.exists(), likes
+
+        logger.debug("Failed to find likers container after 4 attempts.")
         return False, 0
 
     def _get_number_of_likers(self, likes_view):
