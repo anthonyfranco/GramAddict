@@ -90,8 +90,8 @@ class InteractFollowingFeed(Plugin):
             if posts_view_list._check_if_liked():
                 liked_posts_count += 1
                 logger.info(f"Encountered a liked post. Liked posts count: {liked_posts_count}")
-                if liked_posts_count >= 3:
-                    logger.info("Encountered 3 liked posts. Stopping interaction.")
+                if liked_posts_count >= 7:
+                    logger.info("Encountered too many liked posts. Stopping interaction.")
                     break
                 posts_view_list.swipe_to_fit_posts(SwipeTo.NEXT_POST)
                 time.sleep(2)  # Wait for the next post to load

@@ -551,10 +551,14 @@ class PostsViewList:
             logger.debug(f"Attempt {attempt + 1} to find likers container.")
             gap_view_obj = self.device.find(resourceIdMatches=containers_gap)
             likes_view = self.device.find(
-                index=-1,
                 resourceId=ResourceID.ROW_FEED_TEXTVIEW_LIKES,
-                className=ClassName.TEXT_VIEW,
+                className=ClassName.TEXT_VIEW
             )
+            if likes_view.exists():
+                logger.debug("Found likes view.")
+            else:
+                likes_view = None
+
             description_view = self.device.find(
                 resourceIdMatches=ResourceID.ROW_FEED_COMMENT_TEXTVIEW_LAYOUT
             )
@@ -572,7 +576,7 @@ class PostsViewList:
                 universal_actions._swipe_points(Direction.DOWN, delta_y=100)
                 continue
 
-            if not likes_view.exists():
+            if not likes_view or not likes_view.exists():
                 if description_view.exists() or gap_view_obj.exists():
                     logger.debug("Description view or gap view exists, but no likes view found.")
                     return False, likes
@@ -973,11 +977,15 @@ class PostsViewList:
             logger.debug(f"Like button exists: {like_button_exists}")
             if not like_button_exists:
                 logger.info("No like button found, scrolling down a little more.")
-                PostsViewList(self.device).swipe_to_fit_posts(
-                    SwipeTo.HALF_PHOTO
-                )
-                like_button_exists, _ = self._find_likers_container()
-                logger.debug(f"Like button exists: {like_button_exists}")
+                for attempt in range(3):
+                    UniversalActions(self.device)._swipe_points(
+                        direction=Direction.DOWN, delta_y=70  # Adjust delta_y to a smaller value
+                    )
+                    like_button_exists, _ = self._find_likers_container()
+                    if like_button_exists:
+                        break
+                    else:
+                        logger.info(f"Attempt {attempt + 1}: Still no like button found.")
             if like_button_exists:
                 logger.info("Clicking on the little heart ❤️.")
                 self.device.find(
