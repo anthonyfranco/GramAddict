@@ -979,7 +979,7 @@ class PostsViewList:
                 logger.info("No like button found, scrolling down a little more.")
                 for attempt in range(3):
                     UniversalActions(self.device)._swipe_points(
-                        direction=Direction.DOWN, delta_y=70  # Adjust delta_y to a smaller value
+                        direction=Direction.DOWN, delta_y=100  # Adjust delta_y to a smaller value
                     )
                     like_button_exists, _ = self._find_likers_container()
                     if like_button_exists:
@@ -989,7 +989,8 @@ class PostsViewList:
             if like_button_exists:
                 logger.info("Clicking on the little heart ❤️.")
                 self.device.find(
-                    resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE
+                    resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE,
+                    index=-1
                 ).click()
             else:
                 logger.info("No like button found, skipping.")
@@ -1005,11 +1006,13 @@ class PostsViewList:
     def _check_if_liked(self):
         logger.debug("Check if like succeeded in post view.")
         bnt_like_obj = self.device.find(
-            resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE
+            resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE,
+            index=-1
         )
         if bnt_like_obj.exists():
             STR = "Liked"
-            if self.device.find(descriptionMatches=case_insensitive_re(STR)).exists():
+            logger.debug(f"bnt_like_obj.get_desc(): {bnt_like_obj.get_desc()}")
+            if bnt_like_obj.get_desc() == STR:
                 logger.debug("Like is present.")
                 return True
             else:
@@ -1242,7 +1245,8 @@ class OpenedPostView:
             attempt = 0
             while True:
                 like_button = post_media_view.down(
-                    resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE
+                    resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE,
+                    index=-1
                 )
                 if like_button.viewV2 is not None or attempt == 3:
                     return like_button if like_button.exists() else None

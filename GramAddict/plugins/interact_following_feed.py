@@ -2,7 +2,7 @@ from GramAddict.core.plugin_loader import Plugin
 from GramAddict.core.decorators import run_safely
 from GramAddict.core.utils import init_on_things, get_value
 from GramAddict.core.views import TabBarView, PostsViewList, LikeMode, SwipeTo
-from GramAddict.core.device_facade import DeviceFacade, Direction
+from GramAddict.core.device_facade import DeviceFacade, Direction, Location, SleepTime
 from GramAddict.core.resources import ResourceID
 
 import logging
@@ -90,7 +90,7 @@ class InteractFollowingFeed(Plugin):
             if posts_view_list._check_if_liked():
                 liked_posts_count += 1
                 logger.info(f"Encountered a liked post. Liked posts count: {liked_posts_count}")
-                if liked_posts_count >= 7:
+                if liked_posts_count >= 5:
                     logger.info("Encountered too many liked posts. Stopping interaction.")
                     break
                 posts_view_list.swipe_to_fit_posts(SwipeTo.NEXT_POST)
@@ -126,7 +126,7 @@ class InteractFollowingFeed(Plugin):
             return
         
         first_story.click()
-        time.sleep(2)  # Wait for the story to load
+        time.sleep(1)  # Wait for the story to load
 
         while True:
             # Extract the username from the story
@@ -142,6 +142,10 @@ class InteractFollowingFeed(Plugin):
             if sponsored_text.exists():
                 logger.info("Skipping sponsored story")
             elif username_node.exists():
+                if not self.is_last_story(device_facade):
+                    reels =  device_facade.find(resourceId='com.instagram.android:id/reel_viewer_root')
+                    reels.click(mode=Location.RIGHTEDGE, sleep=SleepTime.SHORT)
+                    continue
                 username = username_node.get_text()
                 # Like the story if not liked in the last 20 hours
                 if self.can_like_story(username):
@@ -241,3 +245,24 @@ class InteractFollowingFeed(Plugin):
             return
 
         logger.info("Successfully clicked on 'Following'")
+
+    def is_last_story(self, device_facade):
+        try:
+            # Find the text container element
+            text_container = device_facade.find(resourceId="com.instagram.android:id/reel_viewer_text_container")
+            
+            if text_container.exists():
+                content_desc = text_container.get_desc()
+                #logger.info(f"Content description: {content_desc}")
+                # Extract the story numbers from the content description
+                if ', story ' in content_desc:
+                    story_info = content_desc.split(', story ')[-1]
+                    current, total = map(int, story_info.split(' of '))
+                    logger.debug(f"Current story: {current}, Total stories: {total}")
+                    # Check if we're on the last story
+                    return current == total
+        
+        except Exception as e:
+            print(f"Error checking if last story: {e}. Might be sponsored story?")
+        
+        return False
