@@ -310,6 +310,7 @@ class ActionUnfollowFollowers(Plugin):
             user_list = device.find(
                 resourceIdMatches=self.ResourceID.USER_LIST_CONTAINER,
             )
+            checked_user_count = 0
             row_height, n_users = inspect_current_view(user_list)
             for item in user_list:
                 cur_row_height = item.get_height()
@@ -400,6 +401,7 @@ class ActionUnfollowFollowers(Plugin):
                                 True
                             )                            
                     else:
+                        checked_user_count += 1
                         unfollowed = self.do_unfollow(
                             device,
                             username,
@@ -435,10 +437,15 @@ class ActionUnfollowFollowers(Plugin):
             if screen_iterated_followings != prev_screen_iterated_followings:
                 prev_screen_iterated_followings = screen_iterated_followings
                 logger.info("Need to scroll now.", extra={"color": f"{Fore.GREEN}"})
+                    
                 list_view = device.find(
                     resourceId=self.ResourceID.LIST,
                 )
-                list_view.scroll(Direction.DOWN)
+                if checked_user_count == 0:
+                    logger.info("No users to checked, lets fling")
+                    list_view.fling(Direction.DOWN)
+                else:
+                    list_view.scroll(Direction.DOWN)
             else:
                 load_more_button = device.find(
                     resourceId=self.ResourceID.ROW_LOAD_MORE_BUTTON
