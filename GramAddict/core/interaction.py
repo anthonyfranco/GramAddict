@@ -276,6 +276,7 @@ def interact_with_user(
                 save_crash(device)
                 continue
             already_liked, _ = opened_post_view._is_post_liked()
+            logger.debug(f"is_post_liked: #{already_liked}")
             if already_liked:
                 logger.info("Post already liked!")
             elif opened_post_view and already_liked is not None:
@@ -553,7 +554,7 @@ def _browse_carousel(device: DeviceFacade, obj_count: int) -> None:
                 ).exists():
                     watch_photo_time = get_value(
                         configs.args.watch_photo_time,
-                        "Watching photo for {}s.",
+                        "_browse_carousel:Watching photo for {}s.",
                         0,
                         its_time=True,
                     )
@@ -780,9 +781,126 @@ def _send_PM(
         return False
 
 
-def _load_and_clean_txt_file(
-    my_username: str, txt_filename: str
-) -> Optional[List[str]]:
+def _watch_stories(
+    device: DeviceFacade,
+    profile_view: ProfileView,
+    username: str,
+    stories_percentage: int,
+    args: Namespace,
+    session_state: SessionState,
+) -> int:
+    if not random_choice(stories_percentage):
+        return 0
+    if not session_state.check_limit(
+        limit_type=session_state.Limit.WATCHES, output=True
+    ):
+        def watch_story() -> bool:
+            if session_state.check_limit(
+                limit_type=session_state.Limit.WATCHES, output=False
+            ):
+                return False
+            logger.debug("Watching stories...")
+            session_state.totalWatched += 1
+            nonlocal stories_counter
+            stories_counter += 1
+            #random_sleep(1, 3, modulable=False, log=True)
+            for _ in range(1):
+                random_sleep(0.5, 1, modulable=False, log=True)
+                if story_view.getUsername().strip().casefold() != username.casefold():
+                    return False
+            return True
+
+        def like_story():
+            obj = device.find(resourceIdMatches=ResourceID.TOOLBAR_LIKE_BUTTON)
+            if obj.exists():
+                if not obj.get_selected():
+                    obj.click()
+                    logger.info("Story has been liked!")
+                else:
+                    logger.info("Story is already liked!")
+            else:
+                logger.info("There is no like button!")
+
+        def is_last_story():
+            try:
+                text_container = device.find(resourceId="com.instagram.android:id/reel_viewer_text_container")
+                if text_container.exists():
+                    content_desc = text_container.get_desc()
+                    if ', story ' in content_desc:
+                        story_info = content_desc.split(', story ')[-1]
+                        current, total = map(int, story_info.split(' of '))
+                        logger.debug(f"Current story: {current}, Total stories: {total}")
+                        return current == total
+            except Exception as e:
+                logger.debug(f"Error checking if last story: {e}. Might be sponsored story?")
+            return False
+
+        stories_ring = profile_view.StoryRing()
+        live_marker = profile_view.live_marker()
+        if live_marker.exists():
+            logger.info(f"{username} is making a live.")
+            return 0
+        if stories_ring.exists():
+            stories_to_watch: int = get_value(
+                args.stories_count, "Stories count: {}.", 1
+            )
+            stories_counter = 0
+            logger.debug("Open the story container.")
+            stories_ring.click(sleep=SleepTime.DEFAULT)
+            story_view = CurrentStoryView(device)
+            story_frame = story_view.getStoryFrame()
+            story_frame.wait(Timeout.MEDIUM)
+            story_username = story_view.getUsername()
+            if (
+                story_username == "BUG!"
+                or story_username.strip().casefold() == username.casefold()
+            ):
+                start = datetime.now()
+                try:
+                    while stories_counter < stories_to_watch:
+                        if not watch_story():
+                            break
+                        if is_last_story() or stories_counter == stories_to_watch - 1:
+                            like_story()
+                            break
+                        logger.debug("Going to the next story...")
+                        story_frame.click(
+                            mode=Location.RIGHTEDGE,
+                            sleep=SleepTime.ZERO,
+                            crash_report_if_fails=False,
+                        )
+                except Exception as e:
+                    logger.debug(f"Exception: {e}")
+                    logger.debug(
+                        "Ignore this error! Stories ended while we were interacting with it."
+                    )
+                for _ in range(4):
+                    if (
+                        story_view.getUsername().strip().casefold()
+                        == username.casefold()
+                    ):
+                        device.back()
+                    else:
+                        break
+                session_state.check_limit(
+                    limit_type=session_state.Limit.WATCHES, output=True
+                )
+                logger.info(
+                    f"Watched stories for {(datetime.now()-start).total_seconds():.2f}s."
+                )
+                return stories_counter
+            else:
+                logger.warning("Failed to open the story container.")
+                logger.debug(f"Story username: {story_username}")
+                save_crash(device)
+                if story_frame.exists():
+                    device.back()
+                return 0
+        return 0
+    else:
+        logger.info("Reached total watch limit, not watching stories.")
+        return 0
+def _load_and_clean_txt_file(my_username: str, txt_filename: str) -> Optional[List[str]]:
     def nonblank_lines(f):
         for ln in f:
             line = ln.rstrip()
@@ -918,118 +1036,3 @@ def _follow(device, username, follow_percentage, args, session_state, swipe_amou
     else:
         logger.info("Reached total follows limit, not following.")
     return False
-
-
-def _watch_stories(
-    device: DeviceFacade,
-    profile_view: ProfileView,
-    username: str,
-    stories_percentage: int,
-    args: Namespace,
-    session_state: SessionState,
-) -> int:
-    if not random_choice(stories_percentage):
-        return 0
-    if not session_state.check_limit(
-        limit_type=session_state.Limit.WATCHES, output=True
-    ):
-
-        def watch_story() -> bool:
-            if session_state.check_limit(
-                limit_type=session_state.Limit.WATCHES, output=False
-            ):
-                return False
-            logger.debug("Watching stories...")
-            session_state.totalWatched += 1
-            nonlocal stories_counter
-            stories_counter += 1
-            random_sleep(1, 3, modulable=False, log=True)
-            like_story()
-            for _ in range(3):
-                random_sleep(0.5, 1, modulable=False, log=True)
-                if story_view.getUsername().strip().casefold() != username.casefold():
-                    return False
-            return True
-
-        def like_story():
-            obj = device.find(resourceIdMatches=ResourceID.TOOLBAR_LIKE_BUTTON)
-            if obj.exists():
-                if not obj.get_selected():
-                    obj.click()
-                    logger.info("Story has been liked!")
-                else:
-                    logger.info("Story is already liked!")
-            else:
-                logger.info("There is no like button!")
-
-        stories_ring = profile_view.StoryRing()
-        live_marker = profile_view.live_marker()
-        if live_marker.exists():
-            logger.info(f"{username} is making a live.")
-            return 0
-        if stories_ring.exists():
-            stories_to_watch: int = get_value(
-                args.stories_count, "Stories count: {}.", 1
-            )
-            stories_counter = 0
-            logger.debug("Open the story container.")
-            stories_ring.click(sleep=SleepTime.DEFAULT)
-            story_view = CurrentStoryView(device)
-            story_frame = story_view.getStoryFrame()
-            story_frame.wait(Timeout.MEDIUM)
-            story_username = story_view.getUsername()
-            if (
-                story_username == "BUG!"
-                or story_username.strip().casefold() == username.casefold()
-            ):
-                start = datetime.now()
-                try:
-                    if not watch_story():
-                        return stories_counter
-                except Exception as e:
-                    logger.debug(f"Exception: {e}")
-                    logger.debug(
-                        "Ignore this error! Stories ended while we were interacting with it."
-                    )
-                for _ in range(stories_to_watch - 1):
-                    try:
-                        logger.debug("Going to the next story...")
-                        story_frame.click(
-                            mode=Location.RIGHTEDGE,
-                            sleep=SleepTime.ZERO,
-                            crash_report_if_fails=False,
-                        )
-                        if not watch_story():
-                            break
-                    except Exception as e:
-                        logger.debug(f"Exception: {e}")
-                        logger.debug(
-                            "Ignore this error! Stories ended while we were interacting with it."
-                        )
-                        break
-                for _ in range(4):
-                    if (
-                        story_view.getUsername().strip().casefold()
-                        == username.casefold()
-                    ):
-                        device.back()
-                    else:
-                        break
-                session_state.check_limit(
-                    limit_type=session_state.Limit.WATCHES, output=True
-                )
-                logger.info(
-                    f"Watched stories for {(datetime.now()-start).total_seconds():.2f}s."
-                )
-                return stories_counter
-            else:
-                logger.warning("Failed to open the story container.")
-                logger.debug(f"Story username: {story_username}")
-                save_crash(device)
-                if story_frame.exists():
-                    device.back()
-                return 0
-        return 0
-    else:
-        logger.info("Reached total watch limit, not watching stories.")
-        return 0

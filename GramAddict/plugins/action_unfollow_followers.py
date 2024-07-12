@@ -361,12 +361,15 @@ class ActionUnfollowFollowers(Plugin):
                         elif following_status not in (
                             FollowingStatus.FOLLOWED,
                             FollowingStatus.REQUESTED,
+                            FollowingStatus.NONE
                         ):
                             logger.info(
                                 f"Skip @{username}. Following status: {following_status.name}."
                             )
                             continue
-
+                    if storage.do_they_follow_me(username):
+                        logger.info(f"@{username} is following you. Skip.")
+                        continue
                     if unfollow_restriction in [
                         UnfollowRestriction.ANY,
                         UnfollowRestriction.ANY_NON_FOLLOWERS,
@@ -398,7 +401,9 @@ class ActionUnfollowFollowers(Plugin):
                                 device,
                                 username,
                                 my_username,
-                                True
+                                True,
+                                storage=storage,
+                                job_name=job_name
                             )                            
                     else:
                         checked_user_count += 1
@@ -413,6 +418,8 @@ class ActionUnfollowFollowers(Plugin):
                                 UnfollowRestriction.ANY_FOLLOWERS,
                             ],
                             job_name == "unfollow-any-followers",
+                            storage=storage,
+                            job_name=job_name
                         )
 
                     if unfollowed:
@@ -443,9 +450,10 @@ class ActionUnfollowFollowers(Plugin):
                 )
                 if checked_user_count == 0:
                     logger.info("No users to checked, lets fling")
-                    list_view.fling(Direction.DOWN)
+                    list_view.fling(Direction.DOWN, max_swipes=1)
                 else:
                     list_view.scroll(Direction.DOWN)
+                random_sleep(2, 3)
             else:
                 load_more_button = device.find(
                     resourceId=self.ResourceID.ROW_LOAD_MORE_BUTTON
@@ -473,6 +481,8 @@ class ActionUnfollowFollowers(Plugin):
         my_username,
         check_if_is_follower,
         unfollow_followers=False,
+        storage=None,
+        job_name=None
     ):
         """
         :return: whether unfollow was successful
@@ -490,6 +500,16 @@ class ActionUnfollowFollowers(Plugin):
 
         is_following_you = self.check_is_follower(device, username, my_username)
         if is_following_you is not None:
+            if is_following_you:
+                logger.info(f"@{username} is following you. Storing...")
+                if storage is not None:
+                    storage.add_interacted_user(
+                        username,
+                        self.session_state.id,
+                        follows_me=True,
+                        job_name=job_name
+                    )
+
             if check_if_is_follower and is_following_you:
                 if not unfollow_followers:
                     logger.info(f"Skip @{username}. This user is following you.")

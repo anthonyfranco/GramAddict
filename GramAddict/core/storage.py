@@ -129,6 +129,12 @@ class Storage:
             return FollowingStatus.NOT_IN_LIST
         else:
             return FollowingStatus[user[USER_FOLLOWING_STATUS].upper()]
+        
+    def do_they_follow_me(self, username):
+        user = self.interacted_users.get(username)
+        if user is None:
+            return False
+        return user.get("follows_me", False)
 
     def add_filter_user(self, username, profile_data, skip_reason=None):
         user = profile_data.__dict__
@@ -157,6 +163,7 @@ class Storage:
         watched=0,
         commented=0,
         pm_sent=False,
+        follows_me=None,
         job_name=None,
         target=None,
     ):
@@ -208,6 +215,12 @@ class Storage:
             scraped
             if "scraped" not in user or user["scraped"] != scraped
             else user["scraped"]
+        )
+
+        user["follows_me"] = (
+            follows_me
+            if "follows_me" not in user or user["follows_me"] != follows_me
+            else user["follows_me"]
         )
         # Save the boolean if we sent a PM
         user["pm_sent"] = (

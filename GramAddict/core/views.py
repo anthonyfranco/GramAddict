@@ -460,6 +460,7 @@ class PostsViewList:
         self.has_tags = False
 
     def swipe_to_fit_posts(self, swipe: SwipeTo):
+        logger.debug("swipe_to_fit_posts")
         """calculate the right swipe amount necessary to swipe to next post in hashtag post view
         in order to make it available to other plug-ins I cut it in two moves"""
         displayWidth = self.device.get_info()["displayWidth"]
@@ -709,6 +710,7 @@ class PostsViewList:
     def _check_if_last_post(
         self, last_description, current_job
     ) -> Tuple[bool, str, str, bool, bool, bool]:
+        logger.debug("_check_if_last_post")
         """check if that post has been just interacted"""
         universal_actions = UniversalActions(self.device)
         username, is_ad, is_hashtag = PostsViewList(self.device)._post_owner(
@@ -1240,23 +1242,32 @@ class OpenedPostView:
         self.has_tags = False
 
     def _get_post_like_button(self) -> Optional[DeviceFacade.View]:
+        logger.debug("get_post_like_button")
         post_media_view = self.device.find(resourceIdMatches=ResourceID.MEDIA_CONTAINER)
+        logger.debug(f"Post media view: {post_media_view.ui_info()}")
         if post_media_view.exists(Timeout.MEDIUM):
+            logger.debug("Post media view exists.")
             attempt = 0
             while True:
                 like_button = post_media_view.down(
                     resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE,
                     index=-1
                 )
+                if not like_button.exists():
+                    like_button = self.device.find(resourceIdMatches=ResourceID.ROW_FEED_BUTTON_LIKE, index=-1)
                 if like_button.viewV2 is not None or attempt == 3:
                     return like_button if like_button.exists() else None
+                logger.debug("Like button not found, swipe down...")
                 UniversalActions(self.device)._swipe_points(
-                    direction=Direction.DOWN, delta_y=100
+                    direction=Direction.DOWN, delta_y=50
                 )
                 attempt += 1
+        else:
+            logger.debug("Post media view does not exist.")
         return None
 
     def _is_post_liked(self) -> Tuple[Optional[bool], Optional[DeviceFacade.View]]:
+        logger.debug("_is_post_liked")
         """
         Check if post is liked
         :return: post is liked or not
@@ -1269,6 +1280,7 @@ class OpenedPostView:
         return like_btn_view.get_selected(), like_btn_view
 
     def like_post(self) -> bool:
+        logger.debug("like_post")
         """
         Like the post with a double click and check if it's liked
         :return: post has been liked
@@ -1363,7 +1375,7 @@ class OpenedPostView:
         ):
             self._has_tags()
             watching_time = get_value(
-                args.watch_photo_time, "Watching photo for {}s.", 0, its_time=True
+                args.watch_photo_time, "watch_media: Watching photo for {}s.", 0, its_time=True
             )
         else:
             return None
@@ -1881,6 +1893,7 @@ class ProfileView(ActionBarView):
         return has_mutual
 
     def swipe_to_fit_posts(self):
+        logger.debug("swipe_to_fit_posts")
         """calculate the right swipe amount necessary to see 12 photos"""
         displayWidth = self.device.get_info()["displayWidth"]
         element_to_swipe_over_obj = self.device.find(
@@ -2104,6 +2117,7 @@ class UniversalActions:
         delta_x=-1,
         delta_y=450,
     ) -> None:
+        logger.debug("_swipe_points")
         displayWidth = self.device.get_info()["displayWidth"]
         displayHeight = self.device.get_info()["displayHeight"]
         middle_point_x = displayWidth / 2

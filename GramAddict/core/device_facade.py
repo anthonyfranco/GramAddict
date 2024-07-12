@@ -119,9 +119,14 @@ class DeviceFacade:
         index=None,
         **kwargs,
     ):
+        #logger.debug(f"Finding view with index: {index}, kwargs: {kwargs}")
         try:
             view = self.deviceV2(**kwargs)
             if index is not None and view.count > 1:
+                logger.debug(f"Index is not None and view.count > 1: {index}, {view.count}")
+                if index < 0:
+                    logger.debug(f"Index is negative: {index}, converting to positive...")
+                    index = view.count + index  # Convert negative index to positive
                 view = self.deviceV2(**kwargs)[index]
         except uiautomator2.JSONRPCError as e:
             raise DeviceFacade.JsonRpcError(e)
@@ -552,12 +557,12 @@ class DeviceFacade:
             except uiautomator2.JSONRPCError as e:
                 raise DeviceFacade.JsonRpcError(e)
 
-        def fling(self, direction):
+        def fling(self, direction, max_swipes=5):
             try:
                 if direction == Direction.UP:
-                    self.viewV2.fling.toBeginning(max_swipes=5)
+                    self.viewV2.fling.toBeginning(max_swipes=max_swipes)
                 else:
-                    self.viewV2.fling.toEnd(max_swipes=5)
+                    self.viewV2.fling.toEnd(max_swipes=max_swipes)
             except uiautomator2.JSONRPCError as e:
                 raise DeviceFacade.JsonRpcError(e)
 
