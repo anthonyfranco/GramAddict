@@ -741,6 +741,17 @@ class DeviceFacade:
             except uiautomator2.JSONRPCError as e:
                 raise DeviceFacade.JsonRpcError(e)
 
+        def get_children_count(self) -> int:
+            """Returns the number of children of this view.
+            
+            Returns:
+                int: Number of child views
+            """
+            try:
+                return len(list(self.viewV2))
+            except uiautomator2.JSONRPCError as e:
+                raise DeviceFacade.JsonRpcError(e)
+
     class JsonRpcError(Exception):
         pass
 

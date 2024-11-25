@@ -714,6 +714,8 @@ def iterate_over_followers(
         )
         return row_search.exists()
 
+    consecutive_private_profiles = 0
+    private_accounts_limit = 5
     while True:
         logger.info("Iterate over visible followers.")
         screen_iterated_followers = []
@@ -744,6 +746,8 @@ def iterate_over_followers(
                 can_interact = False
                 if storage.is_user_in_blacklist(username):
                     logger.info(f"@{username} is in blacklist. Skip.")
+                elif user_info_view.ui_info()["childCount"] != 0:
+                    logger.info(f"@{username} doesn't have a story. Skip.")
                 else:
                     interacted, interacted_when = storage.check_user_was_interacted(
                         username
@@ -770,7 +774,7 @@ def iterate_over_followers(
                     element_opened = user_name_view.click_retry()
 
                     if element_opened:
-                        if not interact(
+                        interaction_result = interact(
                             storage=storage,
                             is_follow_limit_reached=is_follow_limit_reached,
                             username=username,
@@ -780,9 +784,19 @@ def iterate_over_followers(
                             current_job=current_job,
                             target=target,
                             on_interaction=on_interaction,
-                        ):
+                        )
+                        if not interaction_result:
                             return
                     if element_opened:
+                        is_private = ProfileView(device).isPrivateAccount()
+                        if is_private:
+                            consecutive_private_profiles += 1
+                            logger.info(f"@{username}: Profile is private. ({consecutive_private_profiles}/{private_accounts_limit})")
+                        else:
+                            consecutive_private_profiles = 0
+                        if consecutive_private_profiles >= private_accounts_limit:
+                            logger.info(f"Reached {private_accounts_limit} consecutive private profiles. Moving to next profile.")
+                            return
                         logger.info("Back to followers list")
                         device.back()
 
