@@ -393,6 +393,7 @@ class SearchView:
         return None
 
     def navigate_to_target(self, target: str, job: str) -> bool:
+        random_sleep(1, 2, modulable=False)
         target = emoji.emojize(target, use_aliases=True)
         logger.info(f"Navigate to {target}")
         search_edit_text = self._getSearchEditText()
@@ -409,6 +410,7 @@ class SearchView:
             target,
             Mode.PASTE if args.dont_type else Mode.TYPE,
         )
+        sleep(1)
         if self._check_current_view(target, job):
             logger.info(f"{target} is in top view.")
             return True

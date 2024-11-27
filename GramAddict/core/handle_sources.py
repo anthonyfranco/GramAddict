@@ -731,6 +731,7 @@ def iterate_over_followers(
                 if cur_row_height < row_height:
                     continue
                 user_info_view = item.child(index=1)
+                user_follow_button = item.child(index=2)
                 user_name_view = user_info_view.child(index=0).child()
                 if not user_name_view.exists():
                     logger.info(
@@ -746,7 +747,11 @@ def iterate_over_followers(
                 can_interact = False
                 if storage.is_user_in_blacklist(username):
                     logger.info(f"@{username} is in blacklist. Skip.")
+                elif user_follow_button.exists() and user_follow_button.get_text() != "Follow":
+                    screen_skipped_followers_count += 1
+                    logger.info(f"@{username} is already followed. Skip.")
                 elif user_info_view.ui_info()["childCount"] != 0:
+                    screen_skipped_followers_count += 1
                     logger.info(f"@{username} doesn't have a story. Skip.")
                 else:
                     interacted, interacted_when = storage.check_user_was_interacted(
